@@ -1,5 +1,10 @@
 #!/usr/bin/env python3
-"""One-Line Pitches entry: writes one persuasive sentence for a non-coder friend."""
+"""One-line pitch for make.fun: a single sentence aimed at a non-coder friend.
+
+The pitch is fixed text. Before it is written out, it must pass three
+checks: it is not blank, it fits the 1-240 character window, and it is
+exactly one sentence that ends with a period.
+"""
 import os
 import re
 
@@ -9,42 +14,62 @@ PITCH = (
     "so trying costs you nothing."
 )
 
-
-def check_length(text):
-    """Length gate: the pitch must be 1-240 characters long."""
-    if not 1 <= len(text) <= 240:
-        raise ValueError(f"expected 1-240 chars, got {len(text)}")
-    return len(text)
+MIN_CHARS = 1
+MAX_CHARS = 240
+DOMAIN_TOKEN = "make.fun"
 
 
-def count_sentences(text):
-    """Count sentence terminators, ignoring the period inside 'make.fun'."""
-    # "make.fun" holds a period that is not a sentence end; mask it first.
-    masked = text.replace("make.fun", "makefun")
-    terminators = re.findall(r"[.!?](?=\s|$)", masked)
-    return len(terminators), masked
+class PitchValidator:
+    """Runs every rule the bounty places on the pitch text."""
+
+    def __init__(self, text):
+        self.text = text
+
+    def _require_content(self):
+        if not self.text or not self.text.strip():
+            raise ValueError("pitch must contain non-whitespace text")
+
+    def _require_length(self):
+        size = len(self.text)
+        if size < MIN_CHARS or size > MAX_CHARS:
+            raise ValueError(
+                "pitch must be %d-%d chars, got %d" % (MIN_CHARS, MAX_CHARS, size)
+            )
+
+    def _sentence_fragments(self):
+        """Split the pitch into sentences, hiding the dot inside the domain."""
+        cleaned = self.text.replace(DOMAIN_TOKEN, "makefun")
+        parts = re.split(r"[.!?](?:\s+|$)", cleaned)
+        return [part for part in parts if part.strip()]
+
+    def _require_single_sentence(self):
+        fragments = self._sentence_fragments()
+        if len(fragments) != 1:
+            raise ValueError(
+                "pitch must be exactly 1 sentence, got %d" % len(fragments)
+            )
+        if not self.text.rstrip().endswith("."):
+            raise ValueError("pitch must end with a period")
+
+    def validate(self):
+        self._require_content()
+        self._require_length()
+        self._require_single_sentence()
+        return self.text
 
 
-def validate_pitch(text):
-    """Gate check: exactly 1 sentence, 1-240 chars, not only whitespace."""
-    if not text.strip():
-        raise ValueError("pitch must not be only whitespace")
-    check_length(text)
-    n_sentences, masked = count_sentences(text)
-    if n_sentences != 1:
-        raise ValueError(f"expected exactly 1 sentence, got {n_sentences}")
-    if not masked.rstrip().endswith("."):
-        raise ValueError("pitch must end with a period")
-    return text
+def write_entry(pitch, out_dir):
+    os.makedirs(out_dir, exist_ok=True)
+    target = os.path.join(out_dir, "entry.txt")
+    with open(target, "w", encoding="utf-8", newline="") as handle:
+        handle.write(pitch)
+    return target
 
 
 def main():
-    pitch = validate_pitch(PITCH)
-    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR", "/output")
-    os.makedirs(out_dir, exist_ok=True)
-    path = os.path.join(out_dir, "entry.txt")
-    with open(path, "w", encoding="utf-8") as f:
-        f.write(pitch)
+    pitch = PitchValidator(PITCH).validate()
+    out_dir = os.environ.get("MAKEFUN_OUTPUT_DIR") or "/output"
+    write_entry(pitch, out_dir)
 
 
 if __name__ == "__main__":
