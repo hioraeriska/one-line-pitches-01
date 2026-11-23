@@ -17,6 +17,8 @@ PITCH = (
 MIN_CHARS = 1
 MAX_CHARS = 240
 DOMAIN_TOKEN = "make.fun"
+# A sentence ends on . ! or ? followed by whitespace or end of text.
+SENTENCE_END_RE = re.compile(r"[.!?](?:\s+|$)")
 
 
 class PitchValidator:
@@ -39,7 +41,7 @@ class PitchValidator:
     def _sentence_fragments(self):
         """Split the pitch into sentences, hiding the dot inside the domain."""
         cleaned = self.text.replace(DOMAIN_TOKEN, "makefun")
-        parts = re.split(r"[.!?](?:\s+|$)", cleaned)
+        parts = SENTENCE_END_RE.split(cleaned)
         return [part for part in parts if part.strip()]
 
     def _require_single_sentence(self):
